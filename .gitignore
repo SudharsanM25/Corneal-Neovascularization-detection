@@ -16,4 +16,4 @@ uploads/
 outputs/
 
 # Temp folders
-{modules,static,outputs,uploads,template...}/
+{modules,static,outputs,uploads,templates}/

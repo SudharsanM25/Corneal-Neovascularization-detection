@@ -26,6 +26,29 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import pipeline as pl
 
+from huggingface_hub import hf_hub_download
+import os
+
+def download_models():
+    token = os.environ.get("HF_TOKEN")
+    
+    if not os.path.exists("eye_unetpp_effb5_draft1_morphTrue_ttaFalse.pth"):
+        hf_hub_download(
+            repo_id="SudharsanM25/corneal-neovascularization-models",
+            filename="eye_unetpp_effb5_draft1_morphTrue_ttaFalse.pth",
+            local_dir=".",
+            token=token
+        )
+    if not os.path.exists("cornea_unetpp_effb5_draft3_glareTrue_bilTrue_morphTrue_ttaFalse_best_iou.pth"):
+        hf_hub_download(
+            repo_id="SudharsanM25/corneal-neovascularization-models",
+            filename="cornea_unetpp_effb5_draft3_glareTrue_bilTrue_morphTrue_ttaFalse_best_iou.pth",
+            local_dir=".",
+            token=token
+        )
+
+download_models()
+
 # ─────────────────────────────────────────────────────────────
 # CONFIG  — update model paths to your actual checkpoint files
 # ─────────────────────────────────────────────────────────────
