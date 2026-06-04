@@ -1,0 +1,19 @@
+# Model weights
+*.pth
+*.pt
+*.h5
+
+# Virtual environment
+venv/
+
+# Cache
+__pycache__/
+*.pyc
+
+# Runtime folders
+results/
+uploads/
+outputs/
+
+# Temp folders
+{modules,static,outputs,uploads,template...}/

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CornealAI — Vascularization Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #080C14;
+  --surface:   #0D1520;
+  --surface2:  #111C2E;
+  --border:    #1C2D45;
+  --teal:      #00B4D8;
+  --teal-dim:  #0096B7;
+  --accent:    #90E0EF;
+  --orange:    #FF6B35;
+  --green:     #38B000;
+  --red:       #D62839;
+  --text:      #CAF0F8;
+  --muted:     #5C7A96;
+  --white:     #FFFFFF;
+  --mono:      'JetBrains Mono', monospace;
+  --sans:      'Space Grotesk', sans-serif;
+  --radius:    10px;
+  --glow:      0 0 24px rgba(0,180,216,0.18);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRID BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,180,216,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,180,216,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 40px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,12,20,0.85);
+  backdrop-filter: blur(12px);
+}
+.logo {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em;
+}
+.logo-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 12px var(--teal);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+.badge {
+  font-family: var(--mono); font-size: 0.7rem; font-weight: 500;
+  padding: 3px 10px; border-radius: 20px;
+  background: rgba(0,180,216,0.12); color: var(--teal);
+  border: 1px solid rgba(0,180,216,0.25);
+}
+
+/* ── MAIN LAYOUT ── */
+main {
+  position: relative; z-index: 1;
+  max-width: 1200px; margin: 0 auto;
+  padding: 40px 24px 80px;
+  display: grid; grid-template-columns: 400px 1fr; gap: 28px;
+}
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+/* ── PANEL ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.panel-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.panel-header svg { color: var(--teal); }
+.panel-body { padding: 20px; }
+
+/* ── DROP ZONE ── */
+#drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 16px; text-align: center;
+  cursor: pointer; transition: all .25s;
+  background: rgba(0,180,216,0.02);
+  position: relative; overflow: hidden;
+}
+#drop-zone:hover, #drop-zone.drag-over {
+  border-color: var(--teal);
+  background: rgba(0,180,216,0.07);
+  box-shadow: var(--glow);
+}
+#drop-zone .icon { font-size: 2.8rem; margin-bottom: 10px; }
+#drop-zone p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+#drop-zone strong { color: var(--text); }
+#file-input { display: none; }
+#preview-img {
+  max-width: 100%; max-height: 220px;
+  border-radius: 6px; display: none; margin-top: 12px;
+  border: 1px solid var(--border);
+}
+
+/* ── FORM FIELDS ── */
+.field-group { margin-top: 16px; }
+.field-group label {
+  display: block; font-size: 0.76rem; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.field-row { display: flex; gap: 10px; }
+input[type=text], input[type=number] {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 12px;
+  color: var(--text); font-family: var(--sans); font-size: 0.88rem;
+  outline: none; transition: border-color .2s;
+}
+input[type=text]:focus, input[type=number]:focus {
+  border-color: var(--teal);
+}
+.slider-wrap { display: flex; align-items: center; gap: 10px; }
+input[type=range] {
+  flex: 1; accent-color: var(--teal); height: 4px;
+}
+.slider-val {
+  font-family: var(--mono); font-size: 0.8rem; color: var(--teal);
+  width: 30px; text-align: center;
+}
+.toggle-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.toggle {
+  width: 38px; height: 20px; background: var(--border);
+  border-radius: 20px; cursor: pointer; position: relative;
+  transition: background .2s; flex-shrink: 0;
+}
+.toggle.on { background: var(--teal); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: white; transition: transform .2s;
+}
+.toggle.on::after { transform: translateX(18px); }
+.toggle-label { font-size: 0.83rem; color: var(--text); }
+
+/* ── ANALYZE BUTTON ── */
+#analyze-btn {
+  width: 100%; margin-top: 20px;
+  padding: 13px; border-radius: 8px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+  color: #000; font-family: var(--sans); font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; transition: all .2s; letter-spacing: 0.02em;
+  position: relative; overflow: hidden;
+}
+#analyze-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0,180,216,0.4);
+}
+#analyze-btn:disabled {
+  opacity: 0.5; cursor: not-allowed; transform: none;
+}
+#analyze-btn .btn-inner { position: relative; z-index: 1; }
+
+/* ── RIGHT COLUMN ── */
+.right-col { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── PROGRESS ── */
+#progress-panel { display: none; }
+.prog-steps { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.prog-step {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  font-size: 0.83rem; transition: all .3s;
+}
+.prog-step.active {
+  border-color: var(--teal);
+  background: rgba(0,180,216,0.08);
+  box-shadow: 0 0 12px rgba(0,180,216,0.1);
+}
+.prog-step.done { border-color: rgba(56,176,0,0.4); background: rgba(56,176,0,0.06); }
+.prog-step.error { border-color: rgba(214,40,57,0.4); background: rgba(214,40,57,0.06); }
+.step-icon { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; }
+.step-icon.wait { background: var(--border); color: var(--muted); }
+.step-icon.spin {
+  border: 2px solid var(--teal);
+  border-top-color: transparent;
+  animation: spin .8s linear infinite;
+  background: transparent;
+}
+.step-icon.ok  { background: var(--green); color: #fff; }
+.step-icon.err { background: var(--red); color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.prog-bar-wrap {
+  height: 4px; background: var(--border); border-radius: 4px; overflow: hidden;
+}
+.prog-bar {
+  height: 100%; background: linear-gradient(90deg, var(--teal), var(--accent));
+  width: 0%; transition: width .5s ease; border-radius: 4px;
+}
+
+/* ── RESULTS ── */
+#results-panel { display: none; }
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin: 12px 0;
+}
+.metric-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px;
+  text-align: center;
+}
+.metric-card .val {
+  font-family: var(--mono); font-size: 1.6rem; font-weight: 700;
+  color: var(--teal);
+}
+.metric-card .lbl {
+  font-size: 0.72rem; color: var(--muted); margin-top: 4px;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.severity-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;
+}
+
+/* ── IMAGE GALLERY ── */
+.gallery-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px; margin: 8px 0;
+}
+.gallery-item {
+  border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all .2s; position: relative;
+}
+.gallery-item:hover {
+  border-color: var(--teal); transform: scale(1.02);
+  box-shadow: var(--glow);
+}
+.gallery-item img {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+}
+.gallery-item .img-cap {
+  padding: 5px 8px; font-size: 0.68rem; color: var(--muted);
+  background: var(--surface2); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gallery-section-title {
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.gallery-section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ── DOWNLOAD BUTTONS ── */
+.dl-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.dl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text);
+  font-family: var(--sans); font-size: 0.8rem; font-weight: 500;
+  text-decoration: none; cursor: pointer; transition: all .2s;
+}
+.dl-btn:hover { border-color: var(--teal); color: var(--teal); }
+.dl-btn.primary {
+  background: linear-gradient(135deg,var(--teal),var(--teal-dim));
+  color: #000; border-color: transparent; font-weight: 700;
+}
+.dl-btn.primary:hover { box-shadow: 0 4px 16px rgba(0,180,216,.4); color: #000; }
+
+/* ── LIGHTBOX ── */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.92); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+}
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 8px; }
+#lightbox-close {
+  position: absolute; top: 20px; right: 24px;
+  font-size: 1.8rem; color: var(--text); cursor: pointer; background: none; border: none;
+  line-height: 1;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center; padding: 40px 20px; color: var(--muted);
+}
+.empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-state p { font-size: 0.85rem; line-height: 1.7; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  padding: 12px 20px; border-radius: 8px;
+  font-size: 0.85rem; font-weight: 500;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); opacity: 0; transform: translateY(10px);
+  transition: all .3s; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { border-color: var(--red); color: var(--red); }
+#toast.success { border-color: var(--green); color: var(--green); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    CornealAI
+  </div>
+  <div class="badge">Vascularization Analyzer v1.0</div>
+</header>
+
+<main>
+  <!-- ── LEFT: UPLOAD + SETTINGS ── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Upload -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+             viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Slit-Lamp Image
+      </div>
+      <div class="panel-body">
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="icon">🔬</div>
+          <p><strong>Drop image here</strong> or click to browse<br>
+          Supports JPG, PNG, BMP, TIFF</p>
+          <img id="preview-img" alt="preview"/>
+        </div>
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff"/>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+             viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+        Analysis Settings
+      </div>
+      <div class="panel-body">
+        <div class="field-group">
+          <label>Patient ID (optional)</label>
+          <input type="text" id="patient-id" placeholder="e.g. PT-2024-001"/>
+        </div>
+
+        <div class="field-group">
+          <label>Vessel Sensitivity</label>
+          <div class="slider-wrap">
+            <input type="range" id="sensitivity" min="0" max="100" value="50"
+                   oninput="document.getElementById('sens-val').textContent=this.value"/>
+            <span class="slider-val" id="sens-val">50</span>
+          </div>
+          <p style="font-size:0.72rem;color:var(--muted);margin-top:4px;">
+            Higher = more vessels detected, more noise risk
+          </p>
+        </div>
+
+        <div class="field-group">
+          <label>Detection Threshold</label>
+          <div class="slider-wrap">
+            <input type="range" id="threshold" min="30" max="80" value="50"
+                   oninput="document.getElementById('thr-val').textContent=(this.value/100).toFixed(2)"/>
+            <span class="slider-val" id="thr-val">0.50</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>Options</label>
+          <div class="toggle-row">
+            <div class="toggle" id="tta-toggle" onclick="this.classList.toggle('on')"></div>
+            <span class="toggle-label">Enable TTA (4-flip avg) — slower but more accurate</span>
+          </div>
+        </div>
+
+        <button id="analyze-btn" onclick="startAnalysis()" disabled>
+          <span class="btn-inner">▶ Run Analysis</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: PROGRESS + RESULTS ── -->
+  <div class="right-col">
+
+    <!-- Empty state -->
+    <div id="empty-state" class="panel">
+      <div class="panel-body empty-state">
+        <div class="icon">👁️</div>
+        <p>Upload a slit-lamp corneal image to begin.<br>
+        The pipeline will detect the eye ROI, segment the cornea,<br>
+        filter blood vessels, and generate a clinical PDF report.</p>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress-panel" class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+             viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Pipeline Progress
+      </div>
+      <div class="panel-body">
+        <div class="prog-bar-wrap" style="margin-bottom:16px;">
+          <div class="prog-bar" id="prog-bar"></div>
+        </div>
+        <div class="prog-steps">
+          <div class="prog-step" id="step-1">
+            <div class="step-icon wait" id="si-1">1</div>
+            <div>
+              <div style="font-weight:600;">Module 1 — Eye ROI Segmentation</div>
+              <div style="font-size:0.76rem;color:var(--muted)">UNet++ · EfficientNet-B5 · CLAHE preprocessing</div>
+            </div>
+          </div>
+          <div class="prog-step" id="step-2">
+            <div class="step-icon wait" id="si-2">2</div>
+            <div>
+              <div style="font-weight:600;">Module 2 — Cornea ROI Segmentation</div>
+              <div style="font-size:0.76rem;color:var(--muted)">Glare removal · Bilateral · CLAHE(L) · Morph clean</div>
+            </div>
+          </div>
+          <div class="prog-step" id="step-3">
+            <div class="step-icon wait" id="si-3">3</div>
+            <div>
+              <div style="font-weight:600;">Module 3 — Vessel Filtering</div>
+              <div style="font-size:0.76rem;color:var(--muted)">Frangi · Meijering · Sato · LAB redness · Percentile threshold</div>
+            </div>
+          </div>
+          <div class="prog-step" id="step-4">
+            <div class="step-icon wait" id="si-4">4</div>
+            <div>
+              <div style="font-weight:600;">Module 4 — Spatial Zone Tracking</div>
+              <div style="font-size:0.76rem;color:var(--muted)">3 rings × 12 sectors = 36 zones · Clock-hour mapping</div>
+            </div>
+          </div>
+          <div class="prog-step" id="step-5">
+            <div class="step-icon wait" id="si-5">5</div>
+            <div>
+              <div style="font-weight:600;">Module 5 — PDF Report</div>
+              <div style="font-size:0.76rem;color:var(--muted)">8-page clinical report with all visuals + metrics</div>
+            </div>
+          </div>
+          <div class="prog-step" id="step-6">
+            <div class="step-icon wait" id="si-6">6</div>
+            <div>
+              <div style="font-weight:600;">Finalising</div>
+              <div style="font-size:0.76rem;color:var(--muted)">Saving summary JSON</div>
+            </div>
+          </div>
+        </div>
+        <div id="prog-msg" style="font-size:0.78rem;color:var(--muted);margin-top:8px;font-family:var(--mono)"></div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-panel" class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+             viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Analysis Results
+      </div>
+      <div class="panel-body" id="results-body">
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt=""/>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────
+let currentFile = null;
+let pollTimer   = null;
+let currentJob  = null;
+
+// ─── Upload / Drop ────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const preview   = document.getElementById('preview-img');
+
+['dragenter','dragover'].forEach(e =>
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e =>
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+dropZone.addEventListener('drop', ev => {
+  const f = ev.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(f) {
+  const ok = /\.(jpe?g|png|bmp|tiff?)$/i.test(f.name);
+  if (!ok) { showToast('Unsupported file type. Use JPG/PNG/BMP/TIF.', 'error'); return; }
+  currentFile = f;
+  const url = URL.createObjectURL(f);
+  preview.src = url; preview.style.display = 'block';
+  document.getElementById('analyze-btn').disabled = false;
+  showToast('Image loaded: ' + f.name, 'success');
+}
+
+// ─── Analysis ─────────────────────────────────────────
+async function startAnalysis() {
+  if (!currentFile) { showToast('Please upload an image first', 'error'); return; }
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.querySelector('.btn-inner').textContent = '⏳ Running...';
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-panel').style.display = 'none';
+  document.getElementById('progress-panel').style.display = 'block';
+
+  // Reset steps
+  for (let i = 1; i <= 6; i++) {
+    setStep(i, 'wait');
+    document.getElementById('step-' + i).className = 'prog-step';
+  }
+  document.getElementById('prog-bar').style.width = '0%';
+  document.getElementById('prog-msg').textContent = 'Uploading image...';
+
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  fd.append('sensitivity',  document.getElementById('sensitivity').value);
+  fd.append('threshold',    document.getElementById('threshold').value / 100);
+  fd.append('use_tta',      document.getElementById('tta-toggle').classList.contains('on'));
+  fd.append('patient_id',   document.getElementById('patient-id').value || 'N/A');
+
+  try {
+    const r    = await fetch('/analyze', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Server error');
+    currentJob = data.job_id;
+    pollTimer  = setInterval(pollStatus, 1200);
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.querySelector('.btn-inner').textContent = '▶ Run Analysis';
+  }
+}
+
+async function pollStatus() {
+  if (!currentJob) return;
+  try {
+    const r    = await fetch('/status/' + currentJob);
+    const data = await r.json();
+    updateProgress(data);
+    if (data.status === 'done') {
+      clearInterval(pollTimer);
+      await loadResults(currentJob);
+    } else if (data.status === 'error') {
+      clearInterval(pollTimer);
+      showError(data.message);
+    }
+  } catch (e) { console.warn(e); }
+}
+
+function updateProgress(data) {
+  const pct  = data.progress || 0;
+  const step = data.step || 0;
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-msg').textContent = data.message || '';
+
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('step-' + i);
+    if (i < step) {
+      el.className = 'prog-step done';
+      setStep(i, 'ok');
+    } else if (i === step) {
+      el.className = 'prog-step active';
+      setStep(i, 'spin');
+    } else {
+      el.className = 'prog-step';
+      setStep(i, 'wait');
+    }
+  }
+}
+
+function setStep(i, state) {
+  const el = document.getElementById('si-' + i);
+  el.className = 'step-icon ' + state;
+  el.textContent = state === 'ok' ? '✓' : state === 'err' ? '✕' : state === 'spin' ? '' : i;
+}
+
+function showError(msg) {
+  for (let i = 1; i <= 6; i++) {
+    const si = document.getElementById('si-' + i);
+    if (si.className.includes('spin')) {
+      si.className = 'step-icon err'; si.textContent = '✕';
+    }
+  }
+  document.getElementById('prog-msg').textContent = '❌ Error: ' + (msg || 'Unknown error');
+  showToast('Analysis failed. Check server logs.', 'error');
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = false;
+  btn.querySelector('.btn-inner').textContent = '▶ Run Analysis';
+}
+
+async function loadResults(jobId) {
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('step-' + i);
+    el.className = 'prog-step done';
+    setStep(i, 'ok');
+  }
+  document.getElementById('prog-bar').style.width = '100%';
+  document.getElementById('prog-msg').textContent = '✅ Analysis complete!';
+
+  const r    = await fetch('/result/' + jobId);
+  const data = await r.json();
+  renderResults(data);
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = false;
+  btn.querySelector('.btn-inner').textContent = '▶ Run Analysis';
+  showToast('Analysis complete!', 'success');
+}
+
+// ─── Render Results ───────────────────────────────────
+function renderResults(data) {
+  const sev    = parseFloat(data.severity_pct || 0);
+  const grade  = sev < 5 ? ['MINIMAL','var(--green)'] : sev < 15 ? ['MILD','#F4A261']
+               : sev < 30 ? ['MODERATE','var(--orange)'] : ['SEVERE','var(--red)'];
+  const paths  = data.paths || {};
+
+  const html = `
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="val">${sev.toFixed(1)}%</div>
+        <div class="lbl">Vessel Coverage</div>
+      </div>
+      <div class="metric-card">
+        <div class="val">${data.vessels || 0}</div>
+        <div class="lbl">Vessels Detected</div>
+      </div>
+      <div class="metric-card">
+        <div class="val">${parseFloat(data.coverage_pct||0).toFixed(1)}%</div>
+        <div class="lbl">Zone Coverage</div>
+      </div>
+    </div>
+
+    <!-- Severity + Hours -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="severity-badge" style="background:rgba(0,0,0,.3);border:1.5px solid ${grade[1]};color:${grade[1]};">
+        ● ${grade[0]} VASCULARIZATION
+      </div>
+      <div style="font-size:0.78rem;color:var(--muted);">
+        Clock hours: <span style="color:var(--text);font-family:var(--mono)">${JSON.stringify(data.affected_hours || [])}</span>
+      </div>
+    </div>
+
+    <!-- Downloads -->
+    <div class="panel-header" style="margin-bottom:8px;padding:0;border:none;">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      DOWNLOADS
+    </div>
+    <div class="dl-grid">
+      <a class="dl-btn primary" href="${data.pdf_url}" download>
+        📄 Download Full PDF Report
+      </a>
+      ${paths['m4_zone_report_csv'] ? `<a class="dl-btn" href="${paths['m4_zone_report_csv']}" download>📊 Zone Report CSV</a>` : ''}
+      ${paths['m4_summary_json'] ? `<a class="dl-btn" href="${paths['m4_summary_json']}" download>🗂 Summary JSON</a>` : ''}
+    </div>
+
+    <!-- Gallery -->
+    ${renderGallery(paths)}
+  `;
+
+  const panel = document.getElementById('results-panel');
+  document.getElementById('results-body').innerHTML = html;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderGallery(paths) {
+  const SECTIONS = [
+    {
+      title: '🔵 Module 1 — Eye ROI',
+      keys: [
+        ['m1_eye_preprocessed',  'Preprocessed'],
+        ['m1_eye_raw_overlay',   'Raw Overlay'],
+        ['m1_eye_morph_overlay', 'Morph Overlay'],
+        ['m1_eye_morph_mask',    'Morph Mask'],
+      ],
+    },
+    {
+      title: '🟠 Module 2 — Cornea ROI',
+      keys: [
+        ['m2_cornea_preprocessed',  'Preprocessed'],
+        ['m2_cornea_raw_overlay',   'Raw Overlay'],
+        ['m2_cornea_morph_overlay', 'Morph Overlay'],
+        ['m2_cornea_morph_mask',    'Morph Mask'],
+      ],
+    },
+    {
+      title: '🔴 Module 3 — Vessel Filtering',
+      keys: [
+        ['m3_structure_overlay', 'Structure Overlay ★'],
+        ['m3_structure_heat',    'INFERNO Heatmap'],
+        ['m3_skeleton',          'Skeleton'],
+        ['m3_vessel_binary',     'Binary Mask'],
+        ['m3_vessel_colored',    'Colored Vessels'],
+      ],
+    },
+    {
+      title: '🟢 Module 4 — Spatial Tracking',
+      keys: [
+        ['m4_zone_map',         'Zone Grid'],
+        ['m4_vessel_overlay',   'Vessels by Zone'],
+        ['m4_tracking_overlay', 'Tracking Overlay'],
+        ['m4_severity_heatmap', 'Density Heatmap'],
+      ],
+    },
+  ];
+
+  let html = '';
+  for (const sec of SECTIONS) {
+    const items = sec.keys.filter(([k]) => paths[k]);
+    if (!items.length) continue;
+    html += `<div class="gallery-section-title">${sec.title}</div>
+             <div class="gallery-grid">`;
+    for (const [key, cap] of items) {
+      if (paths[key]) {
+        html += `
+          <div class="gallery-item" onclick="openLightbox('${paths[key]}')">
+            <img src="${paths[key]}" alt="${cap}" loading="lazy"/>
+            <div class="img-cap">${cap}</div>
+          </div>`;
+      }
+    }
+    html += '</div>';
+  }
+
+  // Debug strip (full width)
+  if (paths['m3_debug_strip']) {
+    html += `
+      <div class="gallery-section-title">🔬 Module 3 — Diagnostic Debug Strip</div>
+      <div style="margin:4px 0;">
+        <img src="${paths['m3_debug_strip']}" style="width:100%;border-radius:8px;border:1px solid var(--border);cursor:pointer;"
+             onclick="openLightbox('${paths['m3_debug_strip']}')" loading="lazy" alt="Debug Strip"/>
+      </div>`;
+  }
+
+  return html;
+}
+
+// ─── Lightbox ─────────────────────────────────────────
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ─── Toast ────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3500);
+}
+</script>
+</body>
+</html>
