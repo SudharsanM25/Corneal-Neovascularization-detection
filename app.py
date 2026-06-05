@@ -30,7 +30,7 @@ from huggingface_hub import hf_hub_download
 import os
 
 def download_models():
-    token = os.environ.get("HF_TOKEN")
+    token = os.environ.get("HF_TOKEN_MODEL")
     
     if not os.path.exists("eye_unetpp_effb5_draft1_morphTrue_ttaFalse.pth"):
         hf_hub_download(
