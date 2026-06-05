@@ -1,3 +1,12 @@
+---
+title: Corneal Neovascularization Detection
+emoji: 🔬
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 Here’s your **complete, clean README (updated with Python 3.11 + environment variables)** — ready to copy 👇
 
 ---
