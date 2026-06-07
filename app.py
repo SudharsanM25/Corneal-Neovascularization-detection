@@ -25,7 +25,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 import pipeline as pl
-
 from huggingface_hub import hf_hub_download
 import os
 
